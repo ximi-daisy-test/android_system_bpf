@@ -682,17 +682,19 @@ void vendorBpfLoader() {
     const char* argv[] = {"/system/bin/bpfloader", NULL};
     android::base::InitLogging(const_cast<char**>(argv), &android::base::KernelLogger);
 
-    // This is the modified BPF-less friendly loader.
-    // It calls the existing loadAllElfObjects but ignores failures.
+    // Load all ELF objects, create programs and maps, and pin them
     if (android::bpf::loadAllElfObjects()) {
-        ALOGE("=== FAILURE LOADING BPF PROGRAMS (Expected on 3.18 kernel) ===");
-        ALOGE("Skipping and continuing boot...");
-        // DO NOT EXIT HERE
+        ALOGE("=== CRITICAL FAILURE LOADING BPF PROGRAMS FROM /vendor/etc/bpf ===");
+        ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
+        ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+              "problems or startup script race.");
+        ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+        sleep(20);
+        exit(121);
     }
 
     const char* args[] = {"/apex/com.android.tethering/bin/netbpfload", "done", NULL};
     execve(args[0], (char**)args, environ);
     ALOGE("FATAL: execve(): %d[%s]", errno, strerror(errno));
-    // Fallback exit if execve fails
     exit(122);
 }
